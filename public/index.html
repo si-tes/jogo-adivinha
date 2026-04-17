@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adivinha</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .host-root { padding: 24px; max-width: 900px; margin: 0 auto; }
+    .page { min-height: 100vh; }
+    .logo-small { font-size: 1.2rem; font-weight: 900; margin-bottom: 32px; }
+    .section-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .lobby-grid { display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: start; margin-bottom: 28px; }
+    .lobby-url { font-size: 0.85rem; color: var(--accent2); word-break: break-all; margin-bottom: 16px; }
+    .host-q-wrap { width: 100%; }
+    .q-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .menu-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px; }
+    .menu-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 32px; border-radius: 16px; cursor: pointer; transition: all 0.2s; text-align: center; }
+    .menu-card:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); transform: translateY(-4px); }
+    .menu-card h3 { margin-bottom: 8px; }
+    @media (max-width: 680px) { .lobby-grid { grid-template-columns: 1fr; justify-items: center; } .menu-cards { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="bg-orbs"><span></span><span></span><span></span></div>
+
+<!-- ════════════ MENU PRINCIPAL ════════════ -->
+<div id="screen-menu" class="page center fade-in">
+  <div class="host-root" style="text-align:center; max-width:700px;">
+    <div style="font-size:3rem; margin-bottom:12px;">🎯</div>
+    <h1 class="brand">Adivinha</h1>
+    <p style="color:var(--muted); margin: 12px 0 36px;">Escolha o modo de jogo</p>
+
+    <div class="menu-cards">
+      <div class="menu-card" id="btn-mode-ranking">
+        <h3>🌍 Modo Geral (Ranking)</h3>
+        <p style="color:var(--muted); font-size:0.9rem;">Jogue sozinho, acumule pontos em 60s e suba no Ranking Global.</p>
+      </div>
+      <div class="menu-card" id="btn-mode-pvp">
+        <h3>⚔️ Modo PvP Local</h3>
+        <p style="color:var(--muted); font-size:0.9rem;">Crie uma sala, use celulares como controle e duele com um amigo.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ SETUP PvP ════════════ -->
+<div id="screen-setup" class="page center fade-in hidden">
+  <div class="host-root" style="text-align:center; max-width:560px;">
+    <h2>Modo PvP</h2>
+    <div class="card" style="margin-top:24px;">
+      <p class="section-label">Tempo da Partida</p>
+      <div class="time-options">
+        <button class="time-btn" data-time="15">15<small>seg</small></button>
+        <button class="time-btn" data-time="30">30<small>seg</small></button>
+        <button class="time-btn selected" data-time="60">60<small>seg</small></button>
+        <button class="time-btn" data-time="120">120<small>seg</small></button>
+      </div>
+      <br />
+      <button class="btn btn-primary" id="btn-create-pvp" style="width:100%">⚡ Criar Sala</button>
+      <button class="btn" onclick="showScreen('menu')" style="width:100%; margin-top:8px; background:transparent">Voltar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ LOBBY PvP ════════════ -->
+<div id="screen-lobby" class="page fade-in hidden">
+  <div class="host-root center" style="padding-top:40px; gap:24px;">
+    <div style="text-align:center;">
+      <h2>Aguardando Jogadores</h2>
+      <p style="color:var(--muted); margin-top:6px; font-size:0.9rem;">Escaneie o QR Code para entrar</p>
+    </div>
+    <div class="lobby-grid card" style="width:100%; max-width:680px;">
+      <div style="text-align:center;">
+        <div class="qr-box"><img id="qr-img" src="" alt="QR Code" /></div>
+        <p class="lobby-url" id="lobby-url" style="margin-top:8px;"></p>
+      </div>
+      <div>
+        <p class="section-label">Jogadores <span id="player-count">0</span>/2</p>
+        <div class="player-slots" id="player-slots"></div>
+        <div style="margin-top:20px; text-align:center;">
+          <button class="btn btn-primary" id="btn-start" style="width:100%" disabled>🚀 Iniciar Partida</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ GAME SCREENS ════════════ -->
+<!-- (O código do Countdown, Question e Gameover é reutilizado para PvP e Ranking onde aplicável, 
+     mas o HostScreen cuida mais do PvP e o Ranking pode ser na mesma tela se jogado via PC) -->
+
+<!-- Modo Ranking - Identificação -->
+<div id="screen-ranking-auth" class="page center fade-in hidden">
+  <div class="host-root" style="max-width:400px; text-align:center">
+    <h2>Modo Geral</h2>
+    <div class="card" style="margin-top:24px;">
+      <input type="text" id="ranking-name" class="input-text" placeholder="Seu Nickname (3-12 letras)" maxlength="12" />
+      <button class="btn btn-primary" id="btn-ranking-join" style="width:100%; margin-top:16px;">Entrar no Jogo</button>
+      <button class="btn" onclick="showScreen('menu')" style="width:100%; margin-top:8px; background:transparent">Voltar</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-question" class="page fade-in hidden">
+  <div class="host-root center" style="gap:0;">
+    <div class="scoreboard" id="q-scoreboard" style="width:100%; max-width:700px;"></div>
+    <div class="card host-q-wrap fade-in" style="max-width:700px; width:100%;">
+      <div class="q-header">
+        <div class="theme-badge" id="q-theme">Tema</div>
+        <div class="progress-info" id="q-progress">Pergunta</div>
+      </div>
+      <div class="timer-wrap">
+        <div class="timer-track"><div class="timer-bar" id="q-timer-bar" style="width:100%"></div></div>
+        <div class="timer-num"><span id="q-timer-num">--</span>s</div>
+      </div>
+      <p class="question-text" id="q-text">Pergunta...</p>
+      <div class="options-grid" id="q-options"></div>
+    </div>
+  </div>
+</div>
+
+<div id="screen-ranking-results" class="page center fade-in hidden">
+  <div class="host-root" style="text-align:center; max-width:600px;">
+    <h2>🏆 Fim de Jogo!</h2>
+    <p id="ranking-my-score" style="font-size:1.5rem; margin:16px 0; color:var(--accent)">Sua pontuação: 0</p>
+    <div class="card" style="text-align:left;">
+      <h3>Top 10 Global</h3>
+      <ol id="global-ranking-list" style="margin-top:16px; padding-left:24px; color:var(--muted)"></ol>
+    </div>
+    <button class="btn btn-primary" onclick="showScreen('menu')" style="margin-top:24px; width:100%">Voltar ao Menu Principal</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const WS_URL = `ws://${location.host}`;
+let ws, token = localStorage.getItem('adivinha_token'), playerName = localStorage.getItem('adivinha_name');
+let mode = null; // 'host_pvp' ou 'ranking'
+let pvpSelectedTime = 60;
+
+function showScreen(id) {
+  document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+  document.getElementById('screen-' + id).classList.remove('hidden');
+}
+
+function showToast(msg, error=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = error ? 'var(--red)' : 'var(--green)';
+  el.className = 'toast show';
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function connect() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => console.log('Conectado ao servidor');
+  ws.onmessage = (evt) => handleMessage(JSON.parse(evt.data));
+  ws.onclose = () => setTimeout(connect, 2000);
+}
+
+function handleMessage(msg) {
+  // Auth
+  if (msg.type === 'auth_success') {
+    localStorage.setItem('adivinha_token', msg.token);
+    localStorage.setItem('adivinha_name', msg.name);
+    token = msg.token; playerName = msg.name;
+    if (mode === 'ranking') ws.send(JSON.stringify({ type: 'ranking_start', token }));
+  }
+  if (msg.type === 'auth_error' || msg.type === 'error') {
+    showToast(msg.message, true);
+    if (mode === 'ranking') showScreen('ranking-auth');
+  }
+
+  // Host PvP
+  if (msg.type === 'host_init') {
+    document.getElementById('qr-img').src = msg.qrcode;
+    document.getElementById('lobby-url').textContent = msg.playerUrl;
+  }
+  if (msg.type === 'pvp_state' && mode === 'host_pvp') renderPvPState(msg);
+  if (msg.type === 'pvp_reveal' && mode === 'host_pvp') revealCorrectOption(msg.correct);
+  if (msg.type === 'players_ready' && mode === 'host_pvp') {
+    document.getElementById('btn-start').disabled = false;
+  }
+
+  // Ranking
+  if (msg.type === 'ranking_question' && mode === 'ranking') {
+    showScreen('question');
+    document.getElementById('q-theme').textContent = msg.question.theme;
+    document.getElementById('q-progress').textContent = `Pontos: ${msg.score} | Questão ${msg.qIndex}`;
+    document.getElementById('q-text').textContent = msg.question.text;
+    const letters = ['A','B','C','D'];
+    document.getElementById('q-options').innerHTML = msg.question.options.map((o,i) => 
+      `<button class="option-btn" onclick="answerRanking('${letters[i]}')">
+         <span class="opt-letter">${letters[i]}</span><span>${o}</span>
+       </button>`
+    ).join('');
+  }
+  if (msg.type === 'ranking_tick' && mode === 'ranking') {
+    document.getElementById('q-timer-num').textContent = msg.timeLeft;
+    document.getElementById('q-timer-bar').style.width = (msg.timeLeft / 60 * 100) + '%';
+  }
+  if (msg.type === 'ranking_answer_result' && mode === 'ranking') {
+    showToast(msg.correct ? '✅ Correto! +1 pt' : '❌ Incorreto!', !msg.correct);
+    if(navigator.vibrate) navigator.vibrate(msg.correct ? [50] : [100,50,100]); // Haptic feedback
+  }
+  if (msg.type === 'ranking_gameover' && mode === 'ranking') {
+    showScreen('ranking-results');
+    document.getElementById('ranking-my-score').textContent = `Sua pontuação: ${msg.score}`;
+  }
+  if (msg.type === 'ranking_top10' && mode === 'ranking') {
+    document.getElementById('global-ranking-list').innerHTML = msg.ranking.map(r => 
+      `<li><strong>${r.name}</strong> - ${r.max_score} pts (${r.min_duration}s)</li>`
+    ).join('');
+  }
+}
+
+// ── PvP 
+document.getElementById('btn-mode-pvp').onclick = () => showScreen('setup');
+document.querySelectorAll('.time-btn').forEach(btn => btn.onclick = (e) => {
+  document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('selected'));
+  e.currentTarget.classList.add('selected');
+  pvpSelectedTime = parseInt(e.currentTarget.dataset.time);
+});
+document.getElementById('btn-create-pvp').onclick = () => {
+  mode = 'host_pvp';
+  ws.send(JSON.stringify({ type: 'host_register' }));
+  ws.send(JSON.stringify({ type: 'set_time', time: pvpSelectedTime }));
+  showScreen('lobby');
+};
+document.getElementById('btn-start').onclick = () => ws.send(JSON.stringify({ type: 'host_start' }));
+
+function renderPvPState(state) {
+  if (state.phase === 'lobby') {
+    showScreen('lobby');
+    document.getElementById('player-count').textContent = state.players.length;
+    document.getElementById('player-slots').innerHTML = state.players.map(p => 
+      `<div class="player-slot filled"><div class="avatar">👤</div><div class="p-name">${p.name}</div></div>`
+    ).join('');
+  }
+  if (state.phase === 'question') {
+    showScreen('question');
+    document.getElementById('q-theme').textContent = state.question.theme;
+    document.getElementById('q-progress').textContent = `Pergunta ${state.questionIndex+1}/${state.totalQuestions}`;
+    document.getElementById('q-text').textContent = state.question.text;
+    const letters = ['A','B','C','D'];
+    document.getElementById('q-options').innerHTML = state.question.options.map((o,i) => 
+      `<button class="option-btn" disabled><span class="opt-letter">${letters[i]}</span><span>${o}</span></button>`
+    ).join('');
+    renderPvPScoreboard(state.players);
+  }
+}
+
+function renderPvPScoreboard(players) {
+  document.getElementById('q-scoreboard').innerHTML = players.map(p => 
+    `<div class="score-card ${p.answered ? 'answered' : ''} ${!p.connected ? 'wrong' : ''}">
+      <div class="sc-name">${p.name} ${!p.connected ? '(Caiu)' : ''}</div>
+      <div class="sc-pts">${p.score} pts</div>
+    </div>`
+  ).join('');
+}
+
+function revealCorrectOption(correctLetter) {
+  const letters = ['A','B','C','D'];
+  document.querySelectorAll('#q-options .option-btn').forEach((btn, i) => {
+    if (letters[i] === correctLetter) btn.classList.add('correct');
+    else btn.classList.add('wrong');
+  });
+}
+
+// ── Ranking
+document.getElementById('btn-mode-ranking').onclick = () => {
+  mode = 'ranking';
+  if (playerName) document.getElementById('ranking-name').value = playerName;
+  showScreen('ranking-auth');
+};
+document.getElementById('btn-ranking-join').onclick = () => {
+  const name = document.getElementById('ranking-name').value;
+  ws.send(JSON.stringify({ type: 'auth', name, token }));
+};
+
+function answerRanking(letter) {
+  ws.send(JSON.stringify({ type: 'ranking_answer', answer: letter }));
+  document.querySelectorAll('#q-options .option-btn').forEach(b => b.disabled = true);
+}
+
+connect();
+</script>
+</body>
+</html>

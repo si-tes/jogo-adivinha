@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Adivinha – Jogador (PvP)</title>
+  <meta name="description" content="Entre na partida e responda as perguntas!" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { height: 100dvh; overflow: hidden; }
+    .player-page { height: 100dvh; padding: 20px 16px; display: flex; flex-direction: column; }
+    .p-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-shrink: 0; }
+    .p-brand { font-size: 1.1rem; font-weight: 900; }
+    #screen-join { align-items: center; justify-content: center; gap: 0; }
+    .join-card { width: 100%; max-width: 380px; }
+    .join-card input { margin-bottom: 14px; }
+    #screen-wait, #screen-countdown, #screen-gameover, #screen-error { align-items: center; justify-content: center; text-align: center; gap: 20px; }
+    .p-avatar { font-size: 4rem; line-height: 1; }
+    #screen-question { justify-content: space-between; gap: 12px; }
+    .q-top { flex-shrink: 0; }
+    .q-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; width: 100%; }
+    .q-options-wrap { width: 100%; }
+    .player-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+    .player-option-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 10px; border-radius: var(--radius); font-size: 0.8rem; font-weight: 600; text-align: center; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s; color: #fff; min-height: 90px; }
+    .player-option-btn .opt-icon { font-size: 1.6rem; }
+    .player-option-btn:active:not(:disabled) { transform: scale(0.94); }
+    .player-option-btn:disabled { opacity: 0.6; cursor: default; }
+    .player-option-btn.opt-A { background: linear-gradient(135deg,#ef4444,#b91c1c); }
+    .player-option-btn.opt-B { background: linear-gradient(135deg,#3b82f6,#1d4ed8); }
+    .player-option-btn.opt-C { background: linear-gradient(135deg,#eab308,#a16207); }
+    .player-option-btn.opt-D { background: linear-gradient(135deg,#10b981,#065f46); }
+    .player-option-btn.selected-answer { border-color: #fff; transform: scale(0.97); }
+    .player-option-btn.correct  { border-color: var(--green); box-shadow: 0 0 24px rgba(16,185,129,0.5); }
+    .player-option-btn.wrong    { opacity: 0.4; }
+    .answer-feedback { text-align: center; padding: 12px; border-radius: var(--radius-sm); font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .feedback-correct { background: rgba(16,185,129,0.2); color: var(--green); border: 1px solid var(--green); }
+    .feedback-wrong   { background: rgba(239,68,68,0.15);  color: var(--red);   border: 1px solid var(--red); }
+    .go-rank { font-size: 5rem; line-height: 1; }
+    .go-pts  { font-size: 2.5rem; font-weight: 900; }
+    .player-q-text { font-size: clamp(0.95rem, 3vw, 1.15rem); font-weight: 600; line-height: 1.4; text-align: center; }
+  </style>
+</head>
+<body>
+<div class="bg-orbs"><span></span><span></span><span></span></div>
+
+<div id="screen-join" class="player-page page fade-in">
+  <div class="join-card card">
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="font-size:2.5rem; margin-bottom:8px;">🎯</div>
+      <h2 class="brand">Adivinha PvP</h2>
+      <p style="color:var(--muted); font-size:0.9rem;">Duele no modo local</p>
+    </div>
+    <input type="text" id="player-name" placeholder="Seu nome..." maxlength="12" autocomplete="off" class="input-text" />
+    <button class="btn btn-primary" id="btn-join" style="width:100%;">▶ Entrar na Partida</button>
+    <p id="join-error" style="color:var(--red); font-size:0.85rem; margin-top:10px; text-align:center; min-height:20px;"></p>
+  </div>
+</div>
+
+<div id="screen-wait" class="player-page page fade-in hidden">
+  <div class="p-avatar" id="wait-avatar">🦊</div>
+  <h2 id="wait-name">Jogador</h2>
+  <p style="color:var(--muted);">Na sala — aguardando início...</p>
+  <div class="waiting-dots"><span></span><span></span><span></span></div>
+</div>
+
+<div id="screen-countdown" class="player-page page fade-in hidden">
+  <p style="color:var(--muted); font-size:1.1rem;">O jogo começa em</p>
+  <div class="countdown-num" id="p-countdown">10</div>
+  <p style="color:var(--muted);">Prepara-se, <span id="p-cd-name" style="color:var(--text); font-weight:700;">Jogador</span>!</p>
+</div>
+
+<div id="screen-question" class="player-page page fade-in hidden">
+  <div class="q-top" style="width:100%;">
+    <div class="p-header">
+      <span class="p-brand brand">🎯 Adivinha PvP</span>
+      <span id="p-score-label" style="font-weight:700; font-size:0.9rem; color:var(--accent2);">0 pts</span>
+    </div>
+    <div class="timer-wrap" style="margin-bottom:0;">
+      <div class="timer-track"><div class="timer-bar" id="p-timer-bar" style="width:100%"></div></div>
+      <div class="timer-num"><span id="p-timer-num">--</span>s</div>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+      <div class="theme-badge" id="p-theme" style="margin-bottom:0;">Tema</div>
+      <span id="p-progress" style="font-size:0.75rem; color:var(--muted); font-weight:600;"></span>
+    </div>
+  </div>
+
+  <div class="q-body">
+    <p class="player-q-text" id="p-q-text"></p>
+    <div id="p-answer-feedback" style="width:100%;"></div>
+    <div class="q-options-wrap">
+      <div class="player-options-grid" id="p-options"></div>
+    </div>
+  </div>
+</div>
+
+<div id="screen-gameover" class="player-page page fade-in hidden">
+  <div class="go-rank" id="go-rank">🏆</div>
+  <div class="winner-label" id="go-result">Fim de Jogo!</div>
+  <div class="go-pts brand" id="go-pts">0 pts</div>
+  <button class="btn btn-secondary" onclick="location.reload()" style="margin-top:24px; width:100%; max-width:360px;">🔄 Voltar ao Início</button>
+</div>
+
+<div id="screen-error" class="player-page page fade-in hidden">
+  <div style="font-size:3rem;">⚠️</div>
+  <h2 id="error-msg" style="color:var(--muted);">Algo deu errado.</h2>
+  <button class="btn btn-secondary" onclick="location.reload()">Tentar novamente</button>
+</div>
+
+<div class="toast" id="p-toast"></div>
+
+<script>
+const WS_URL = `ws://${location.host}`;
+let ws, token = localStorage.getItem('adivinha_token'), myName = localStorage.getItem('adivinha_name');
+let myScore = 0, answered = false, roundTime = 60, lastStatePhase = null;
+
+if (!token) {
+  token = 'uuid-' + Math.random().toString(36).substring(2) + Date.now();
+  localStorage.setItem('adivinha_token', token);
+}
+if (myName) document.getElementById('player-name').value = myName;
+
+const screens = ['join','wait','countdown','question','gameover','error'];
+function showScreen(name) {
+  screens.forEach(s => document.getElementById('screen-' + s).classList.toggle('hidden', s !== name));
+}
+
+function connect() {
+  ws = new WebSocket(WS_URL);
+  ws.onmessage = (evt) => handleMessage(JSON.parse(evt.data));
+  ws.onclose = () => {
+    showToast('Reconectando...', 'var(--red)');
+    setTimeout(connect, 2000);
+  };
+  ws.onopen = () => {
+    // Tenta reconectar se a partida estava rolando
+    if (lastStatePhase && lastStatePhase !== 'lobby' && lastStatePhase !== 'gameover') {
+       joinPvP(myName);
+    }
+  };
+}
+
+document.getElementById('btn-join').onclick = () => {
+  const name = document.getElementById('player-name').value.trim();
+  if (name.length < 3) return document.getElementById('join-error').textContent = 'Nome deve ter min 3 letras.';
+  myName = name;
+  localStorage.setItem('adivinha_name', myName);
+  joinPvP(myName);
+};
+
+function joinPvP(name) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'pvp_join', token, name }));
+  }
+}
+
+function handleMessage(msg) {
+  if (msg.type === 'pvp_accepted') {
+    document.getElementById('wait-name').textContent = msg.name;
+    document.getElementById('p-cd-name').textContent = msg.name;
+    showScreen(msg.reconnected && lastStatePhase ? lastStatePhase : 'wait');
+  }
+  if (msg.type === 'error') {
+    document.getElementById('error-msg').textContent = msg.message;
+    showScreen('error');
+  }
+
+  if (msg.type === 'pvp_state') {
+    lastStatePhase = msg.phase;
+    roundTime = msg.roundTime || 60;
+    const me = msg.players.find(p => p.token === token);
+    if (me) {
+      myScore = me.score;
+      document.getElementById('p-score-label').textContent = myScore + ' pts';
+    }
+
+    if (msg.phase === 'lobby') showScreen('wait');
+    if (msg.phase === 'question') renderQuestion(msg, me);
+    if (msg.phase === 'gameover') {
+      showScreen('gameover');
+      document.getElementById('go-pts').textContent = myScore + ' pts';
+    }
+  }
+
+  if (msg.type === 'pvp_countdown') {
+    showScreen('countdown');
+    document.getElementById('p-countdown').textContent = msg.value;
+  }
+
+  if (msg.type === 'pvp_tick') {
+    const pct = Math.max(0, (msg.timeLeft / roundTime) * 100);
+    document.getElementById('p-timer-bar').style.width = pct + '%';
+    document.getElementById('p-timer-num').textContent = msg.timeLeft;
+  }
+
+  if (msg.type === 'pvp_answer_result') {
+    const fb = document.getElementById('p-answer-feedback');
+    if (msg.correct) {
+      fb.innerHTML = `<div class="answer-feedback feedback-correct">✅ Correto! +1 pt</div>`;
+      if (navigator.vibrate) navigator.vibrate([50]);
+    } else {
+      fb.innerHTML = `<div class="answer-feedback feedback-wrong">❌ Errado!</div>`;
+      if (navigator.vibrate) navigator.vibrate([100,50,100]);
+    }
+  }
+}
+
+const OPT_ICONS = ['🔴','🔵','🟡','🟢'];
+const OPT_LETTERS = ['A','B','C','D'];
+
+function renderQuestion(state, me) {
+  showScreen('question');
+  const q = state.question;
+  answered = me ? me.answered : false;
+
+  document.getElementById('p-theme').textContent = q.theme;
+  document.getElementById('p-q-text').textContent = q.text;
+  document.getElementById('p-progress').textContent = `${state.questionIndex + 1}/${state.totalQuestions}`;
+  
+  if (!answered) document.getElementById('p-answer-feedback').innerHTML = '';
+
+  const grid = document.getElementById('p-options');
+  grid.innerHTML = q.options.map((opt, i) => `
+    <button class="player-option-btn opt-${OPT_LETTERS[i]}" id="btn-${OPT_LETTERS[i]}" 
+      ${answered ? 'disabled' : `onclick="submitAnswer('${OPT_LETTERS[i]}')"`}>
+      <span class="opt-icon">${OPT_ICONS[i]}</span>
+      <span>${opt}</span>
+    </button>
+  `).join('');
+}
+
+function submitAnswer(letter) {
+  if (answered) return;
+  answered = true;
+  ws.send(JSON.stringify({ type: 'pvp_answer', answer: letter }));
+
+  document.querySelectorAll('.player-option-btn').forEach(btn => {
+    btn.disabled = true;
+    if (btn.id === `btn-${letter}`) btn.classList.add('selected-answer');
+  });
+}
+
+function showToast(msg, bg) {
+  const el = document.getElementById('p-toast');
+  el.textContent = msg; 
+  if (bg) el.style.background = bg;
+  el.className = `toast show`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+connect();
+</script>
+</body>
+</html>
